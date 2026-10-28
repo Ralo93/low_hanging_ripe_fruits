@@ -6,8 +6,8 @@ import LanguageToggle from "@/components/LanguageToggle";
 import type { Lang } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: "Personality Quick",
-  description: "10 questions, 5 dimensions, personalised AI prompt",
+  title: "Prozessradar",
+  description: "Interne Prozessschmerzen sichtbar machen und später gezielt verbessern.",
 };
 
 export default async function RootLayout({
@@ -16,7 +16,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const cookieStore = await cookies();
-  const lang = (cookieStore.get("lang")?.value ?? "en") as Lang;
+  const lang = cookieStore.get("lang")?.value === "en" ? "en" : "de" as Lang;
 
   return (
     <html lang={lang}>

@@ -1,223 +1,176 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import QuestionBlock from "@/components/QuestionBlock";
-import { QUESTIONS, QUESTIONS_EN } from "@/lib/questions";
 import { track } from "@/lib/track";
 import { useLanguage } from "@/components/LanguageContext";
-import { t, SCALE_LABELS_EN, SCALE_LABELS_DE } from "@/lib/i18n";
-
-type Answers = Record<number, number>;
-
-function ScaleBar({ inline, lang }: { inline?: boolean; lang: "en" | "de" }) {
-  const labels = lang === "en" ? SCALE_LABELS_EN : SCALE_LABELS_DE;
-  if (inline) {
-    return (
-      <div className="scale-bar-inline">
-        {labels.map(({ n, label }) => (
-          <span key={n} className="scale-bar-item-label">{label}</span>
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div className="scale-bar">
-      <div className="scale-bar-track">
-        {labels.map(({ n, label }) => (
-          <div key={n} className="scale-bar-item">
-            <span className="scale-bar-num">{n}</span>
-            <span className="scale-bar-item-label">{label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+import { t } from "@/lib/i18n";
 
 export default function HomePage() {
-  const router = useRouter();
   const { lang } = useLanguage();
   const tr = t(lang);
-  const questions = lang === "en" ? QUESTIONS_EN : QUESTIONS;
-
-  const [answers, setAnswers] = useState<Answers>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
+  const [painPoint, setPainPoint] = useState("");
+  const [userSolution, setUserSolution] = useState("");
+  const [monthlyTime, setMonthlyTime] = useState("");
+  const [frequency, setFrequency] = useState("");
+  const [friction, setFriction] = useState<string[]>([]);
+  const [tools, setTools] = useState("");
   const [error, setError] = useState("");
-  const [mobileStep, setMobileStep] = useState(0);
 
   useEffect(() => {
     track("page_view");
   }, []);
 
-  function updateAnswer(questionId: number, value: number) {
-    setAnswers((prev) => ({ ...prev, [questionId]: value }));
-  }
-
-  function isFormComplete() {
-    return questions.every((q) => typeof answers[q.id] === "number");
-  }
-
-  async function submitAnswers(finalAnswers: Answers) {
-    setError("");
-    setIsSubmitting(true);
-    track("submitted");
-    try {
-      const response = await fetch("/api/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nickname: null,
-          answers: finalAnswers,
-        }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Fehler beim Speichern.");
-      router.push(`/results/${result.id}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unbekannter Fehler.";
-      setError(message);
-      setIsSubmitting(false);
-    }
-  }
-
-  async function handleDesktopSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    if (!isFormComplete()) {
-      setError(tr.errorAllQuestions);
+    if (!painPoint.trim() || !monthlyTime) {
+      setError(tr.painError);
       return;
     }
-    await submitAnswers(answers);
+    setError("");
+    track("submitted");
+    router.push("/overview");
   }
 
-  function handleMobileAnswer(value: number) {
-    const question = questions[mobileStep - 1];
-    const newAnswers = { ...answers, [question.id]: value };
-    setAnswers(newAnswers);
-    track("question_answered", { question_id: question.id, value });
-    if (mobileStep < questions.length) {
-      setMobileStep(mobileStep + 1);
-    } else {
-      submitAnswers(newAnswers);
-    }
+  function toggleFriction(value: string) {
+    setFriction((current) => current.includes(value)
+      ? current.filter((item) => item !== value)
+      : [...current, value]);
   }
-
-  const currentMobileQuestion = mobileStep > 0 ? questions[mobileStep - 1] : null;
 
   return (
-    <>
-      {/* Desktop layout */}
-      <main className="desktop-layout">
-        <div className="hero-card">
-          <h1>{tr.heroTitle}</h1>
-          <p className="hero-sub">{tr.heroSub}</p>
-          <p className="hero-desc">{tr.heroDesc}</p>
+    <main className="process-page">
+      <section className="process-hero">
+        <div className="hero-copy">
+          <p className="eyebrow">{tr.painEyebrow}</p>
+          <h1>{tr.painTitle}</h1>
+          <p className="hero-desc">{tr.painIntro}</p>
+          <div className="hero-signals" aria-label={tr.painSignalsLabel}>
+            <span><strong>01</strong>{tr.painSignalOne}</span>
+            <span><strong>02</strong>{tr.painSignalTwo}</span>
+            <span><strong>03</strong>{tr.painSignalThree}</span>
+          </div>
         </div>
+        <div className="hero-mark" aria-hidden="true">↗</div>
+      </section>
 
-        <form onSubmit={handleDesktopSubmit}>
-          {error ? <div className="error-box">{error}</div> : null}
-
-          <div className="question-list">
-            {questions.map((question) => (
-              <QuestionBlock
-                key={question.id}
-                questionNumber={question.id}
-                text={question.text}
-                value={answers[question.id]}
-                questionLabel={tr.question}
-                scaleLabels={lang === "en" ? SCALE_LABELS_EN : SCALE_LABELS_DE}
-                onChange={(value) => {
-                  updateAnswer(question.id, value);
-                  track("question_answered", { question_id: question.id, value });
+      <section className="capture-layout">
+        <form className="pain-form" onSubmit={handleSubmit}>
+          <div className="section-kicker">01 / {tr.painFormKicker}</div>
+          <label htmlFor="pain-point">{tr.painLabel}</label>
+          <p className="field-description">{tr.painFieldDescription}</p>
+          <textarea
+            id="pain-point"
+            value={painPoint}
+            onChange={(e) => {
+              setPainPoint(e.target.value);
+              setError("");
+            }}
+            placeholder={tr.painPlaceholder}
+            maxLength={2000}
+            rows={9}
+          />
+          <div className="field-meta">
+            <span>{tr.painPrompt}</span>
+            <span>{painPoint.length} / 2000</span>
+          </div>
+          <div className="context-fields">
+            <div className="context-field context-field--wide">
+              <label htmlFor="monthly-time">{tr.painMonthlyTimeLabel}</label>
+              <p>{tr.painMonthlyTimeDescription}</p>
+              <select
+                id="monthly-time"
+                value={monthlyTime}
+                onChange={(e) => {
+                  setMonthlyTime(e.target.value);
+                  setError("");
                 }}
-              />
-            ))}
-          </div>
-
-          <div className="submit-row">
-            <button className="primary" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? tr.submitting : tr.submitBtn}
-            </button>
-            <p className="privacy-note">{tr.privacyNote}</p>
-          </div>
-        </form>
-        <p className="source-line">{tr.sourceLabel} Samuel D. Gosling, Peter J. Rentfrow und William B. Swann jun. „A Very Brief Measure of the Big Five Personality Domains", Journal of Research in Personality 37 (2003): 504–528</p>
-      </main>
-
-      {/* Mobile layout */}
-      <main className="mobile-layout">
-        {mobileStep === 0 && (
-          <>
-            <div className="hero-card">
-              <h1>{tr.heroTitle}</h1>
-              <p className="hero-sub">{tr.heroSub}</p>
-              <p className="hero-desc">{tr.heroDesc}</p>
-            </div>
-
-            <div className="submit-row">
-              <button className="primary" onClick={() => {
-                track("started");
-                setMobileStep(1);
-              }}>
-                {tr.startBtn}
-              </button>
-              <p className="privacy-note">{tr.privacyNote}</p>
-            </div>
-          </>
-        )}
-
-        {mobileStep > 0 && currentMobileQuestion && (
-          <>
-            <div className="mobile-question-header">
-              <button
-                className="mobile-back-btn"
-                onClick={() => setMobileStep(mobileStep - 1)}
-                disabled={isSubmitting}
-                aria-label={tr.back}
               >
-                ←
-              </button>
-              <span className="mobile-progress-label">
-                {mobileStep} / {questions.length}
-              </span>
+                <option value="">{tr.painMonthlyTimePlaceholder}</option>
+                <option value="under-1">{tr.painMonthlyTimeUnderOne}</option>
+                <option value="1-3">{tr.painMonthlyTimeOneToThree}</option>
+                <option value="4-8">{tr.painMonthlyTimeFourToEight}</option>
+                <option value="9-20">{tr.painMonthlyTimeNineToTwenty}</option>
+                <option value="over-20">{tr.painMonthlyTimeOverTwenty}</option>
+              </select>
             </div>
-
-            <div className="mobile-progress-bar">
-              <div
-                className="mobile-progress-fill"
-                style={{ width: `${(mobileStep / questions.length) * 100}%` }}
+            <div className="context-field">
+              <label htmlFor="frequency">{tr.painFrequencyLabel}</label>
+              <select
+                id="frequency"
+                value={frequency}
+                onChange={(e) => setFrequency(e.target.value)}
+              >
+                <option value="">{tr.painFrequencyPlaceholder}</option>
+                <option value="daily">{tr.painFrequencyDaily}</option>
+                <option value="weekly">{tr.painFrequencyWeekly}</option>
+                <option value="monthly">{tr.painFrequencyMonthly}</option>
+                <option value="irregular">{tr.painFrequencyIrregular}</option>
+              </select>
+            </div>
+            <div className="context-field">
+              <fieldset className="friction-fieldset">
+                <legend>{tr.painFrictionLabel}</legend>
+                <p>{tr.painFrictionDescription}</p>
+                <div className="friction-options">
+                  <label className="friction-option">
+                    <input type="checkbox" checked={friction.includes("repetition")} onChange={() => toggleFriction("repetition")} />
+                    <span>{tr.painFrictionRepetition}</span>
+                  </label>
+                  <label className="friction-option">
+                    <input type="checkbox" checked={friction.includes("waiting")} onChange={() => toggleFriction("waiting")} />
+                    <span>{tr.painFrictionWaiting}</span>
+                  </label>
+                  <label className="friction-option">
+                    <input type="checkbox" checked={friction.includes("handoffs")} onChange={() => toggleFriction("handoffs")} />
+                    <span>{tr.painFrictionHandoffs}</span>
+                  </label>
+                  <label className="friction-option">
+                    <input type="checkbox" checked={friction.includes("errors")} onChange={() => toggleFriction("errors")} />
+                    <span>{tr.painFrictionErrors}</span>
+                  </label>
+                  <label className="friction-option">
+                    <input type="checkbox" checked={friction.includes("searching")} onChange={() => toggleFriction("searching")} />
+                    <span>{tr.painFrictionSearching}</span>
+                  </label>
+                </div>
+              </fieldset>
+            </div>
+            <div className="context-field context-field--wide">
+              <label htmlFor="tools">{tr.painToolsLabel}</label>
+              <input
+                id="tools"
+                value={tools}
+                onChange={(e) => setTools(e.target.value)}
+                placeholder={tr.painToolsPlaceholder}
               />
             </div>
-
-            {error ? <div className="error-box" style={{ marginTop: 16 }}>{error}</div> : null}
-
-            <p className="mobile-question-text">{currentMobileQuestion.text}</p>
-
-            <div className="answer-buttons">
-              {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-                <button
-                  key={n}
-                  className={`answer-btn${answers[currentMobileQuestion.id] === n ? " selected" : ""}`}
-                  onClick={() => handleMobileAnswer(n)}
-                  disabled={isSubmitting}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-
-            <ScaleBar inline lang={lang} />
-
-            {isSubmitting && (
-              <p style={{ textAlign: "center", marginTop: 24, opacity: 0.6 }}>
-                {tr.submitting}
-              </p>
-            )}
-          </>
-        )}
-        <p className="source-line">{tr.sourceLabel} Samuel D. Gosling, Peter J. Rentfrow und William B. Swann jun. „A Very Brief Measure of the Big Five Personality Domains", Journal of Research in Personality 37 (2003): 504–528</p>
-      </main>
-    </>
+          </div>
+          <label htmlFor="user-solution">{tr.painSolutionLabel}</label>
+          <p className="field-description">{tr.painSolutionDescription}</p>
+          <textarea
+            id="user-solution"
+            className="solution-textarea"
+            value={userSolution}
+            onChange={(e) => {
+              setUserSolution(e.target.value);
+            }}
+            placeholder={tr.painSolutionPlaceholder}
+            maxLength={1500}
+            rows={5}
+          />
+          <div className="field-meta">
+            <span>{tr.painSolutionPrompt}</span>
+            <span>{userSolution.length} / 1500</span>
+          </div>
+          {error ? <div className="error-box">{error}</div> : null}
+          <button className="primary process-submit" type="submit">
+            {tr.painSubmit} <span aria-hidden="true">↗</span>
+          </button>
+          <p className="privacy-note">{tr.painPrivacy}</p>
+        </form>
+      </section>
+    </main>
   );
 }

@@ -1,3 +1,6 @@
 /.env.local
 /.next
 /node_modules
+
+
+git remote add origin https://github.com/Ralo93/low_hanging_ripe_fruits.git
